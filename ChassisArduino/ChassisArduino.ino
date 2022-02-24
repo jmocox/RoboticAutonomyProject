@@ -1,16 +1,17 @@
 #include "VNH3SP30.h"
 #include <SPI.h>
 
-#define M1SpeedPin
-#define M1InAPin
-#define M1InBPin
+#define M1SpeedPin 4
+#define M1InAPin 3
+#define M1InBPin 5
 
-#define M2SpeedPin
+/*#define M2SpeedPin
 #define M2InAPin
 #define M2InBPin
+*/
 
 VNH3SP30 MotorLeft(M1SpeedPin, M1InAPin, M1InBPin);
-VNH3SP30 MotorRight(M2SpeedPin, M2InAPin, M2InBPin);
+//VNH3SP30 MotorRight(M2SpeedPin, M2InAPin, M2InBPin);
 
 // Slave Select pins for encoders 1 and 2
 // Feel free to reallocate these pins to best suit your circuit
@@ -132,6 +133,9 @@ void clearEncoderCount() {
   digitalWrite(slaveSelectEnc2,HIGH);     // Terminate SPI conversation 
 }
 
+float xdot = 0.25; int thetadot = 0;
+bool leftForward = true; bool rightForward = true;
+
 void setup() {
   Serial.begin(9600);      // Serial com for data output
  
@@ -139,16 +143,16 @@ void setup() {
   clearEncoderCount();  Serial.println("Encoders Cleared...");
   // put your setup code here, to run once:
   MotorLeft.Stop();
-  MotorRight.Stop();
+  //MotorRight.Stop();
   delay(100);
   int LeftTicks=0; int RightTicks = 0;
-  int xdot = 0; int thetadot = 0;
+  //int xdot = 5; int thetadot = 0;
   // Loop Driving Forward for a small while and count ticks for the entire amount of time motor was in usefor ()
   
   
 }
 
-void TurnChassis
+
 void loop() {
   
   // Expected inputs from ROS are vehicle speed and rotational speed
@@ -172,13 +176,13 @@ void loop() {
       rightForward = true;
     }
 
-    MotorLeft(toInt(xdot*255), leftForward);
-    MotorRight(toInt(xdot*255), rightForward);
+    MotorLeft.Move((int)(xdot * 255), leftForward);
+    //MotorRight(toInt(xdot*255), rightForward);
   }
-  else() {
+  else {
     leftForward = true;
     rightForward = true;
     MotorLeft.Stop();
-    MotorRight.Stop();
+    //MotorRight.Stop();
   }
 }
