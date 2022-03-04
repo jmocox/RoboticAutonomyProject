@@ -58,8 +58,8 @@ while ret:
 
     annotated_frame = cv2.circle(frame, test_center, test_radius, (255, 255, 255), 10)
 
-    top_cat = np.concatenate((annotated_frame, color_ball), axis=1)
-    bottom_cat = np.concatenate((color_everything_else, img), axis=1)
+    top_cat = np.concatenate((annotated_frame, hsv_ball), axis=1)
+    bottom_cat = np.concatenate((hsv_everything_else, img), axis=1)
     full_image = np.concatenate((top_cat, bottom_cat), axis=0)
 
     cv2.imshow('HSV Test', full_image)
