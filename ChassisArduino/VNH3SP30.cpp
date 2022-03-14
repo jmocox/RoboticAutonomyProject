@@ -19,25 +19,27 @@ VNH3SP30::VNH3SP30(int _PWMPIN, int _INAPIN, int _INBPIN){
 
 VNH3SP30::~VNH3SP30(){};
 
-void VNH3SP30::Move(byte Speed, bool Forward) {
-	SetPWMA(Speed); 
-	digitalWrite(INAPIN, Forward);
-	digitalWrite(INBPIN, !Forward);
+void VNH3SP30::Throttle(float Throttle) {
+	if (Throttle>0){
+		digitalWrite(INAPIN, HIGH);
+		digitalWrite(INBPIN, LOW);
+		SetPWMA(Throttle*255); 
+	}
+	if (Throttle<0){
+		digitalWrite(INAPIN, LOW);
+		digitalWrite(INBPIN, HIGH);
+		SetPWMA(Throttle*-255); 
+	}
+	
 }
 
 void VNH3SP30::Stop() {
-	SetPWMA(255); 
+	SetPWMA(0); 
 	digitalWrite(INAPIN, LOW);
 	digitalWrite(INBPIN, LOW);
 }
 
-void VNH3SP30::Coast(){
-	
-	SetPWMA(255);
-	digitalWrite(INAPIN, LOW);
-	digitalWrite(INBPIN, LOW);
-	
-}
+
 //-- private methods --//
 void VNH3SP30::SetPWMA(byte Value) {
 	analogWrite(PWMPIN, Value);

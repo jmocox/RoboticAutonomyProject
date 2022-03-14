@@ -11,9 +11,8 @@ class VNH3SP30{
               VNH3SP30(int _PWMPIN, int _INAPIN, int _INBPIN);
               ~VNH3SP30();
       
-              void Move(byte Speed, bool Forward); 
-              void Stop() ;
-              void Coast(); 
+              void Throttle(float Throttle); //Value between -1 and 1
+              void Stop() ; 
                
                                      
       private:
