@@ -12,7 +12,7 @@ def main():
     kernel = np.ones((10, 10), np.uint8)
 
     for color in ['Purple', 'Blue', 'Green', 'Orange', 'Yellow'][:1]:
-        video_object = cv2.VideoCapture('../ball_training_data/{0}BallRecording.mp4'.format(color))
+        video_object = cv2.VideoCapture(f'../ball_training_data/{color}BallRecording.mp4')
         ret, frame = video_object.read()
 
         i, c = 0, True
@@ -46,7 +46,7 @@ def main():
                 if radius > 10:
                     cv2.circle(frame, (int(x), int(y)), int(radius), (0, 0, 0), 5)
                     cv2.circle(frame, center, 5, (0, 0, 0), -1)
-                    cv2.putText(frame, '{0}.{1}'.format(color, j),
+                    cv2.putText(frame, f'{color}.{j}',
                                 (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX,
                                 1, (0, 0, 0), 2)
 
@@ -66,7 +66,7 @@ def plot_hue_frequencies():
     background_mask = cv2.imread('../ball_training_data/background_mask.png')[:, :, 0].flatten()
     ball_mask = cv2.imread('../ball_training_data/ball_mask.png')[:, :, 0].flatten()
     for color in ['Purple', 'Blue', 'Green', 'Orange', 'Yellow']:
-        video_object = cv2.VideoCapture('../ball_training_data/{0}BallRecording.mp4'.format(color))
+        video_object = cv2.VideoCapture(f'../ball_training_data/{color}BallRecording.mp4')
         ret, frame = video_object.read()
 
         hues_background = np.zeros(180, np.uint64)
@@ -170,7 +170,7 @@ def plot_hue_frequencies():
 # quit()
 #
 # for i in range(7, 43):
-#     img = cv2.imread('../tmp/{0}_asdf.png'.format(i))
+#     img = cv2.imread(f'../tmp/{i}_asdf.png')
 #     img = cv2.rectangle(img, (0, 0), (250, img.shape[0]), (255, 255, 255), -1)
 #
 #     grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -205,7 +205,7 @@ def build_hsv_plots():
         line_ll_v, = ax21.plot(x_256, y_ck_v, 'b+')
 
         ax00.set_title('Background')
-        ax01.set_title('{0} Ball'.format(color))
+        ax01.set_title(f'{color} Ball')
 
         ax00.set_ylabel('Hue')
         ax10.set_ylabel('Saturation')
@@ -223,7 +223,7 @@ def build_hsv_plots():
         ball_saturations = np.zeros(256, dtype=np.uint32)
         ball_values = np.zeros(256, dtype=np.uint32)
 
-        blue = cv2.VideoCapture('../ball_training_data/{0}BallRecording.mp4'.format(color))
+        blue = cv2.VideoCapture(f'../ball_training_data/{color}BallRecording.mp4')
         ret, frame = blue.read()
         i = 0
         while ret:
@@ -284,7 +284,7 @@ def build_hsv_plots():
             img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-        cv2.imwrite('../ball_training_data/hsv_{0}.png'.format(color), img)
+        cv2.imwrite(f'../ball_training_data/hsv_{color}.png', img)
 
 
 def make_rainbow_hsv(height, width):
@@ -468,7 +468,103 @@ def do_thing():
 
     out.release()
 
+def test_masks():
+    for color in ['Purple', 'Blue', 'Green', 'Orange', 'Yellow'][-2:-1]:
+        print(f'Testing {color} Mask ...')
+        test_image = cv2.imread(f'../tmp/{color}_mask_test.png')
+        # background_mask = cv2.imread(f'../ball_training_data/{color}_background_mask.png')
+        ball_mask = cv2.imread(f'../ball_training_data/{color}_ball_mask.png')
+        background_mask = cv2.imread(f'../ball_training_data/background_mask.png')
+        # ball_mask = cv2.imread(f'../ball_training_data/ball_mask.png')
+        print(ball_mask.shape)
+        ball = cv2.bitwise_and(test_image, ball_mask)
+        background = cv2.bitwise_and(test_image, background_mask)
+
+        top_row = np.concatenate((background_mask, ball_mask), axis=1)
+        bottom_row = np.concatenate((background, ball), axis=1)
+
+        combined = np.concatenate((top_row, bottom_row), axis=0)
+
+        cv2.imshow('test image', test_image)
+        cv2.imshow('masks', combined)
+
+        cv2.waitKey()
+
+def test_mask_video():
+    for color in ['Purple', 'Blue', 'Green', 'Orange', 'Yellow']:
+        print(f'Testing {color} Mask ...')
+        background_mask = cv2.imread(f'../tmp/{"Blue"}_background_mask.png')
+        # background_mask = cv2.imread(f'../ball_training_data/{color}_background_mask.png')
+        ball_mask = cv2.imread(f'../ball_training_data/{color}_ball_mask.png')
+        # background_mask = cv2.imread(f'../ball_training_data/background_mask.png')
+        # ball_mask = cv2.imread(f'../ball_training_data/ball_mask.png')
+
+        vid = cv2.VideoCapture(f'../ball_training_data/{color}BallRecording.mp4')
+        ret, frame = vid.read()
+
+        while ret:
+
+            ball = cv2.bitwise_and(frame, ball_mask)
+            background = cv2.bitwise_and(frame, background_mask)
+
+            top_row = np.concatenate((background_mask, ball_mask), axis=1)
+            bottom_row = np.concatenate((background, ball), axis=1)
+
+            combined = np.concatenate((top_row, bottom_row), axis=0)
+
+            cv2.imshow('test image', frame)
+            cv2.imshow('masks', combined)
+
+            ret, frame = vid.read()
+            if cv2.waitKey(10) & 0xFF == ord('q'):
+                # break out of the while loop
+                c = False
+                break
+
+def clean_mask(color='Blue', save=True, lower=200, upper=255, t='background'):
+    print(color)
+    raw = cv2.imread(f'../tmp/{color}_{t}_mask_raw.png')
+
+    mono_mask = cv2.inRange(raw, (lower, lower, lower), (upper, upper, upper))
+    mask = 255 * np.ones((*mono_mask.shape, 3))
+    mask = cv2.bitwise_and(mask, mask, mask=mono_mask)
+
+    cv2.imshow('raw', raw)
+    cv2.imshow('mask', mask)
+
+    cv2.waitKey()
+
+    if save:
+        cv2.imwrite(f'../ball_training_data/{color}_{t}_mask.png', mask)
+
+def clean_vid(color='Yellow', front_cut=100, back_cut=100):
+    vid = cv2.VideoCapture(f'../ball_training_data/{color}BallRecording.mp4')
+    ret, frame = vid.read()
+
+    resolution = list(reversed(frame.shape[:2]))
+
+    frames = []
+    while ret:
+        frames.append(frame)
+        ret, frame = vid.read()
+
+    frames = frames[front_cut:-(back_cut + 1)]
+
+    fps = round(len(frames) / 60, 2)
+    print(f'Recording {color}: number of frames = {len(frames)}, resolution = {resolution}, fps(1min) = {fps}')
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(f'../tmp/{color}BallRecording_tmp.mp4', fourcc, fps, resolution)
+
+    for frame in frames:
+        out.write(frame)
+
+    out.release()
 
 if __name__ == '__main__':
-    main()
+    clean_vid()
+    # test_mask_video()
+    # test_masks()
+    # clean_mask(save=True)
+    # main()
     quit()
