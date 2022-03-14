@@ -3,13 +3,13 @@
 #include <ros.h>
 #include <geometry_msgs/Twist.h>
 
-#define M1SpeedPin
-#define M1InAPin
-#define M1InBPin
+#define M1SpeedPin 3
+#define M1InAPin 2
+#define M1InBPin 4
 
-#define M2SpeedPin
-#define M2InAPin
-#define M2InBPin
+#define M2SpeedPin 6
+#define M2InAPin 5
+#define M2InBPin 7
 
 VNH3SP30 MotorLeft(M1SpeedPin, M1InAPin, M1InBPin);
 VNH3SP30 MotorRight(M2SpeedPin, M2InAPin, M2InBPin);
