@@ -77,9 +77,11 @@ class BallDetector:
         r, g, b = marker_rgb_colors[color]
 
         marker = Marker()
-        marker.header.frame_id = "/camera_link"
+        marker.header.frame_id = '/camera_link'
         marker.type = marker.SPHERE
         marker.action = marker.ADD
+        marker.ns = f'{color}Ball'
+        marker.id = 0
         marker.scale.x = diameter
         marker.scale.y = diameter
         marker.scale.z = diameter
