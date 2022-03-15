@@ -23,12 +23,12 @@ void VNH3SP30::Throttle(float Throttle) {
 	if (Throttle>0){
 		digitalWrite(INAPIN, HIGH);
 		digitalWrite(INBPIN, LOW);
-		SetPWMA(Throttle*255); 
+		SetPWMA(abs(Throttle)*255); 
 	}
 	if (Throttle<0){
 		digitalWrite(INAPIN, LOW);
 		digitalWrite(INBPIN, HIGH);
-		SetPWMA(Throttle*-255); 
+		SetPWMA(abs(Throttle)*255); 
 	}
 	
 }

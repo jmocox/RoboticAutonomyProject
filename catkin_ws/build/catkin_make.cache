@@ -1,0 +1,2 @@
+robotic_autonomy_controller
+-DCATKIN_DEVEL_PREFIX=/home/jeronimo/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/jeronimo/catkin_ws/install -G Unix Makefiles

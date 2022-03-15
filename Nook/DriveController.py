@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import queue
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Joy
@@ -33,7 +34,7 @@ def callback(data):
 def start():
     # publishing to "turtle1/cmd_vel" to control turtle1
     global pub#1, pub2
-    pub = rospy.Publisher('chassis/cmd_vel', Twist)
+    pub = rospy.Publisher('chassis/cmd_vel', Twist, queue_size=5)
     #pub2 = rospy.Publisher('chassis/right_wheels', Float32)
 
     # subscribed to joystick inputs on topic "joy"

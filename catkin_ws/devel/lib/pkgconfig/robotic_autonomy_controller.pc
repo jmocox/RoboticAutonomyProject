@@ -1,0 +1,8 @@
+prefix=/home/jeronimo/catkin_ws/devel
+
+Name: robotic_autonomy_controller
+Description: Description of robotic_autonomy_controller
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

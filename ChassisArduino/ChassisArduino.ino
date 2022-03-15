@@ -16,21 +16,29 @@ VNH3SP30 MotorRight(M2SpeedPin, M2InAPin, M2InBPin);
 
 ros::NodeHandle nh;
 
+float theta_dot, x_dot, omega_left, omega_right;
+bool leftForward, rightForward;
+
 void controlCallback( const geometry_msgs::Twist& twist_msg){
   theta_dot = twist_msg.angular.z;
-  x_dot = twist_msg.linear.x
-  omega_left = x_dot+theta_dot/2;
-  omega_right = x_dot-theta_dot/2;
-  Serial.println("   omega_left:  "+omega_left+"   omega_right:  "+omega_right);
-  leftForward = false; rightForward = false;
-  if(omega_left>0){
-    leftForward = true;
-  }
-  if(omega_right>0){
-    rightForward = true;
-  }
-  MotorLeft(toInt(omega_left*255), leftForward);
-  MotorRight(toInt(omega_right*255), rightForward);
+  x_dot = twist_msg.linear.x;
+  omega_left = x_dot+theta_dot/4;
+  omega_right = x_dot-theta_dot/4;
+  //Serial.println("   omega_left:  "+String(omega_left)+"   omega_right:  "+String(omega_right));
+  //leftForward = false; rightForward = false;
+  MotorLeft.Throttle(((omega_left)));
+  MotorRight.Throttle(((omega_right)));
+//  if(-0.01>omega_right && omega_right>0.01){
+//    MotorRight.Throttle(((omega_right)));
+//  }
+//  if(-0.01>omega_left && omega_left>0.01){
+//    MotorLeft.Throttle(((omega_left)));
+//  }
+//  else{
+//    MotorLeft.Stop();
+//    MotorRight.Stop();
+//  }
+  
 
     //     leftForward = false;
   //     rightForward = false;
@@ -69,6 +77,7 @@ void loop() {
   // Decide Direction of motors based on control inputs
   nh.spinOnce();
   delay(1);
+  //Serial.println("AHHHHHHHHHHH");
 
 
   // if(thetadot != 0 || xdot != 0) {
