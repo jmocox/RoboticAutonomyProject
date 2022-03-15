@@ -23,11 +23,11 @@ ball_hsv_thresholds = {
 }
 
 marker_rgb_colors = {
-    'Purple': (238, 130, 238),
-    'Blue': (0, 0, 255),
-    'Green': (0, 255, 0),
-    'Yellow': (255, 255, 0),
-    'Orange': (25, 140, 0),
+    'Purple': (238.0, 130.0, 238.0),
+    'Blue': (0.0, 0.0, 255.0),
+    'Green': (0.0, 255.0, 0.0),
+    'Yellow': (255.0, 255.0, 0.0),
+    'Orange': (255.0, 140.0, 0.0),
 }
 for c in marker_rgb_colors.keys():
     r, g, b = marker_rgb_colors[c]
@@ -41,9 +41,8 @@ class BallDetector:
         self.bridge = CvBridge()
 
         self.ball_image_pub = rospy.Publisher('/ball_image', Image, queue_size=5)
-        self.ball_marker_pubs = {c: rospy.Publisher(f'/ball_marker/{c}', Marker, queue_size=5) for c in
+        self.ball_marker_pubs = {c: rospy.Publisher('/ball_marker/' + c, Marker, queue_size=5) for c in
                                  ball_hsv_thresholds.keys()}
-        self.ball_marker_pub = rospy.Publisher('/ball_marker', Marker, queue_size=5)
         rospy.Subscriber('/camera/color/image_raw', Image, self.image_callback)
         rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_callback)
 
@@ -65,22 +64,40 @@ class BallDetector:
 
     def squared_mean(self, distance, radius):
         return (radius - (6.37 + (38.33 / distance))) ** 2
-
-    def transform_and_publish_marker(self, pixel_x, pixel_y, distance, color, diameter=0.15):
+    
+    def transform(self, pixel_x, pixel_y, distance):
         horizontal_theta = (((pixel_x * 2) / self.width) - 1) * self.horizontal_half_angle
         vertical_theta = -1 * (((pixel_y * 2) / self.height) - 1) * self.vertical_half_angle
 
-        y = distance * np.cos(vertical_theta) * np.sin(horizontal_theta)
-        x = distance * np.sin(vertical_theta) * np.cos(horizontal_theta)
-        z = distance * np.cos(vertical_theta) * np.cos(horizontal_theta)
+        y = - distance * np.cos(vertical_theta) * np.sin(horizontal_theta)
+        z = distance * np.sin(vertical_theta) * np.cos(horizontal_theta)
+        x = distance * np.cos(vertical_theta) * np.cos(horizontal_theta)
+        
+        return x, y, z
+    
+    def publish_line(self, a, b):
+        marker = Marker()
+        marker.header.frame_id = '/camera_link'
+        marker.type = marker.LINE_STRIP
+        marker.action = marker.ADD
+        marker.scale.x = 0.03
+        marker.color.a = 1.0
+        marker.color.r = r
+        marker.color.g = g
+        marker.color.b = b
+        marker.pose.orientation.w = 1.0
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = z
 
+    def publish_marker(self, x, y, z, color, diameter=0.15):
         r, g, b = marker_rgb_colors[color]
 
         marker = Marker()
         marker.header.frame_id = '/camera_link'
         marker.type = marker.SPHERE
         marker.action = marker.ADD
-        marker.ns = f'{color}Ball'
+        marker.ns = color + 'Ball'
         marker.id = 0
         marker.scale.x = diameter
         marker.scale.y = diameter
@@ -90,9 +107,9 @@ class BallDetector:
         marker.color.g = g
         marker.color.b = b
         marker.pose.orientation.w = 1.0
-        marker.pose.position.x = z
-        marker.pose.position.y = -y
-        marker.pose.position.z = x
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = z
 
         self.ball_marker_pubs[color].publish(marker)
 
@@ -129,6 +146,8 @@ class BallDetector:
             self.height, self.width, _ = cv_image.shape
 
         hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
+        
+        cur_blue_xyz = None
 
         for color, thresholds in ball_hsv_thresholds.items():
             # use color to find ball candidates
@@ -147,11 +166,17 @@ class BallDetector:
                 if ball_d > 0.1:
                     error = self.squared_mean(ball_d, radius)
                     if radius > 10 and error < 200:
-                        self.transform_and_publish_marker(x, y, ball_d, color)
+                        tx, ty, tz = self.transform(x, y, ball_d)
+                        self.publish_marker(tx, ty, tz, color)
+                        
+                        if color == 'Blue':
+                            cur_blue_xyz = (tx, ty, tz)
+                        if color == 'Green':
+                            pass
 
-                        cv2.circle(hsv_image, (int(x), int(y)), int(radius), (1, 1, 1), 5)
-                        text = '  {0} m  {1:.2f} error'.format(ball_d, error)
-                        cv2.putText(hsv_image, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+                        cv2.circle(hsv_image, (int(x), int(y)), int(radius), (0, 0, 0), 4)
+                        #text = '  {0} m  {1:.2f} error'.format(ball_d, error)
+                        #cv2.putText(hsv_image, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
 
         bgr_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
         try:
