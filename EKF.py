@@ -14,12 +14,13 @@ class EKF():
         self.U = U
         self.A = np.identity(3)
         self.C = np.identity(3)
+        self.x_km2_km1 = np.zeros(3)
 
         self.Sigma_init = np.array(
             [[0.05, 0, 0], [0, 0.05, 0], [0, 0, 0.1]])  # <--------<< Initialize correction covariance
         self.sigma_measure = np.array([[0.05, 0, 0], [0, 0.05, 0],
                                        [0, 0, 0.1]])  # <--------<< Should be updated with variance from the measurement
-        self.sigma_motion = np.array([[0.05, 0, 0], [0, 0.05, 0], [0, 0, 0.1]])
+        self.sigma_motion = np.array([[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]])
         self.KalGain = np.random.rand(3, 3)  # <--------<< Initialize Kalman Gain
 
         self.z_k = None
@@ -35,11 +36,23 @@ class EKF():
 
         self.belief_pub = rospy.Publisher('/ball_belief', PoseWithCovarianceStamped, queue_size=5)
 
-    def prediction(self, x_km1_km1, Sigma_km1_km1):
-        x_mean_k_km1, x_mean_kpn_km1 = self.dotX(x_km1_km1)
+    def prediction(self, x_km1_km1, Sigma_km1_km1):  ## Initial State is input
+        
+        x_mean_k_km1, x_mean_kpn_km1 = self.dotX(x_km1_km1) ## k_km1 becomes predicted step
         # TODO: display x_mean_kpn_km1 as future prediction
 
+        # Defining A utilizing Jacobian... A = (I+Jacobian)
+        Jacobian = [
+            [x_km1_km1[0]-self.x_km2_km1[0], 0, 0],
+            [0, x_km1_km1[1]-self.x_km2_km1[1], 0],
+            [-1*np.sin(x_km1_km1[2]-self.x_km2_km1[2]),np.cos(x_km1_km1[2]-self.x_km2_km1[2]),x_km1_km1[2]-self.x_km2_km1[2]]
+        ]
+        Jacobian = np.divide(Jacobian, self.dt)
+        self.A = np.add(np.identity(3),Jacobian)
+
         Sigma_k_km1 = np.matmul(self.A, Sigma_km1_km1, self.A.T) + self.sigma_motion
+
+        self.x_km2_km1 = x_km1_km1
 
         return x_mean_k_km1, Sigma_k_km1
 
