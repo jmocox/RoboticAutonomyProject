@@ -60,7 +60,7 @@ class BallDetector:
         self.vertical_half_angle = 0.375246  # radians
 
     def run(self):
-        dt = 0.1
+        dt = 1
         hz = 1.0 / dt
         rate = rospy.Rate(hz)
 
