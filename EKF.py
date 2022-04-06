@@ -15,12 +15,13 @@ class EKF():
         self.U = U
         self.A = np.identity(3)
         self.C = np.identity(3)
+        self.x_km2_km1 = np.zeros(3)
 
         self.Sigma_init = np.array(
             [[0.05, 0, 0], [0, 0.05, 0], [0, 0, 0.1]])  # <--------<< Initialize correction covariance
         self.sigma_measure = np.array([[0.05, 0, 0], [0, 0.05, 0],
                                        [0, 0, 0.1]])  # <--------<< Should be updated with variance from the measurement
-        self.sigma_motion = np.array([[0.05, 0, 0], [0, 0.05, 0], [0, 0, 0.1]])
+        self.sigma_motion = np.array([[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]])
         self.KalGain = np.random.rand(3, 3)  # <--------<< Initialize Kalman Gain
 
         self.z_k = None
@@ -38,18 +39,59 @@ class EKF():
 
     def prediction(self, x_km1_km1, Sigma_km1_km1):
 
+        # ADDED THIS BIT _______________
         # Calculate nk time steps ahead
         x_predictions = np.zeros((nk,2))
         for time_steps in range(self.nk):
             x_mean_k_km1, x_mean_kpn_km1 = self.dotX(x_km1_km1, time_steps)
             x_predictions[time_steps] = [x_mean_k_km1,x_mean_kpn_km1]
+        #_______________________________
+        # Defining A utilizing Jacobian... A = (I+Jacobian)
+        """
+        jacobian = np.asarray([
+            [x_km1_km1[0]-self.x_km2_km1[0], 0, 0],
+            [0, x_km1_km1[1]-self.x_km2_km1[1], 0],
+            [-1*np.sin(x_km1_km1[2]-self.x_km2_km1[2]),np.cos(x_km1_km1[2]-self.x_km2_km1[2]),x_km1_km1[2]-self.x_km2_km1[2]]
+        ])
+        """
+        x_mean_k_km1 = np.matmul(self.A, x_km1_km1)
+        Jacobian = np.asarray([
+            [x_mean_k_km1[0] - x_km1_km1[0], 0, 0],
+            [0, x_mean_k_km1[1] - x_km1_km1[1], 0],
+            [-1*np.sin(x_mean_k_km1[2]-x_km1_km1[2]),np.cos(x_mean_k_km1[2]-x_km1_km1[2]),x_mean_k_km1[2] - x_km1_km1[2]]
+        ])
+        
+        
+        """
+        Jacobian = np.asarray([
+            [x_mean_k_km1[0] - x_km1_km1[0], 0, 0],
+            [0, x_mean_k_km1[1] - x_km1_km1[1], 0],
+            [0, 0,x_mean_k_km1[2] - x_km1_km1[2]]
+        ])
+        """
+        """
+        Jacobian = np.asarray([
+            [x_km1_km1[0] - self.x_km2_km1[0], 0, 0],
+            [0, x_km1_km1[1] - self.x_km2_km1[1], 0],
+            [0, 0,x_km1_km1[2] - self.x_km2_km1[2]]
+        ])
+        """
+        
+        Jacobian = np.divide(Jacobian, self.dt)
+        self.A = np.add(np.identity(3), Jacobian)
+        
+        # print(self.A, self.dt)
+        
+        #x_mean_k_km1 = np.matmul(self.A, x_km1_km1)
 
-        Sigma_k_km1 = np.matmul(self.A, Sigma_km1_km1, self.A.T) + self.sigma_motion
+        Sigma_k_km1 = np.matmul(np.matmul(self.A, Sigma_km1_km1), self.A.T) + self.sigma_motion
+
+        self.x_km2_km1 = x_km1_km1
 
         return x_predictions[:,0], Sigma_k_km1
 
     def correction(self, x_mean_k_km1, Sx_k_km1, kalman_gain):
-        x_mean_k_k = x_mean_k_km1 + np.matmul(kalman_gain, self.z_k)
+        x_mean_k_k = x_mean_k_km1 + np.matmul(kalman_gain, self.z_k - x_mean_k_km1)
 
         inner = np.identity(3) - np.matmul(kalman_gain, self.C)
         Sigma_k_k = np.matmul(inner, Sx_k_km1)
@@ -57,21 +99,23 @@ class EKF():
         return x_mean_k_k, Sigma_k_k
 
     def compute_gain(self, Sx_k_km1):
-        inner = np.matmul(self.C, Sx_k_km1, self.C.T) + self.sigma_measure
-        return np.matmul(Sx_k_km1, self.C.T, np.linalg.inv(inner))
+        inner = np.matmul(np.matmul(self.C, Sx_k_km1), self.C.T) + self.sigma_measure
+        return np.matmul(np.matmul(Sx_k_km1, self.C.T), np.linalg.inv(inner))
 
     def update(self):
         if self.z_k is None:
             return
         # Output matrix of means of all predicted steps
         x_prediction_means, Sx_k_km1 = self.prediction(self.X, self.Sx_k_k)
-        x_mean_k_km1 = x_prediction_means[0]
+        x_mean_k_km1 = x_prediction_means[0] #Changed this line too
         kalman_gain = self.compute_gain(Sx_k_km1)
         self.X, self.Sx_k_k = self.correction(x_mean_k_km1, Sx_k_km1, kalman_gain)
         """for i in range(nk):
             self.X_predicted_steps[i],Sx_k_k_step = self.correction(s_prediction_means[i], Sx_k_km1, kalman_gain)"""
         print(self.X, self.Sx_k_k)
 
+        self.publish_ball_belief()
+    
     def dotX(self, x):
         x_dot = np.asarray([
             self.U[0] * np.cos(x[2]) * self.dt,
@@ -79,7 +123,8 @@ class EKF():
             self.U[1] * self.dt,
         ])
 
-        return (x + x_dot), (x + self.nk * x_dot)
+        #return (x + x_dot), (x + self.nk * x_dot)
+        return (x + x_dot), (x + 1 * x_dot)
 
     def measurement_cb(self, pwcs):
         if self.z_k is None:
@@ -96,18 +141,22 @@ class EKF():
         ])
 
         self.z_height_k = pwcs.pose.pose.position.z
-        self.z_height_variance = pwcs.pose.covariance[14]
+        self.z_height_variance = min(pwcs.pose.covariance[14], 1)
 
     def publish_ball_belief(self):
         pwcs = PoseWithCovarianceStamped()
         pwcs.header.stamp = rospy.get_rostime()
         pwcs.header.frame_id = 'camera_link'
 
-        pwcs.pose.pose.orientation = quaternion_from_euler(0, 0, self.X[2])
+        x, y, z, w = quaternion_from_euler(0, 0, self.X[2])
+        pwcs.pose.pose.orientation.x = x
+        pwcs.pose.pose.orientation.y = y
+        pwcs.pose.pose.orientation.z = z
+        pwcs.pose.pose.orientation.w = w
 
         pwcs.pose.pose.position.x = self.X[0]
         pwcs.pose.pose.position.y = self.X[1]
-        pwcs.pose.pose.position.y = self.z_height_k
+        pwcs.pose.pose.position.z = self.z_height_k
 
         pwcs.pose.covariance = [
             self.Sx_k_k[0, 0], 0, 0, 0, 0, 0,
@@ -133,7 +182,7 @@ if __name__ == '__main__':
 
     # Control input, always assumed to be going straight at constant velocity
     U = [
-        0.5,  # Forward velocity (meters / second)
+        0,  # Forward velocity (meters / second)
         0  # Turning velocity (radians / second)
     ]
 
