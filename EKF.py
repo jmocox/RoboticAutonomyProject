@@ -11,6 +11,7 @@ class EKF():
         self.nk = nk
         self.dt = dt
         self.X = X
+        self.X_predicted_steps = zeros(nk)
         self.U = U
         self.A = np.identity(3)
         self.C = np.identity(3)
@@ -36,12 +37,16 @@ class EKF():
         self.belief_pub = rospy.Publisher('/ball_belief', PoseWithCovarianceStamped, queue_size=5)
 
     def prediction(self, x_km1_km1, Sigma_km1_km1):
-        x_mean_k_km1, x_mean_kpn_km1 = self.dotX(x_km1_km1)
-        # TODO: display x_mean_kpn_km1 as future prediction
+
+        # Calculate nk time steps ahead
+        x_predictions = np.zeros((nk,2))
+        for time_steps in range(self.nk):
+            x_mean_k_km1, x_mean_kpn_km1 = self.dotX(x_km1_km1, time_steps)
+            x_predictions[time_steps] = [x_mean_k_km1,x_mean_kpn_km1]
 
         Sigma_k_km1 = np.matmul(self.A, Sigma_km1_km1, self.A.T) + self.sigma_motion
 
-        return x_mean_k_km1, Sigma_k_km1
+        return x_predictions[:,0], Sigma_k_km1
 
     def correction(self, x_mean_k_km1, Sx_k_km1, kalman_gain):
         x_mean_k_k = x_mean_k_km1 + np.matmul(kalman_gain, self.z_k)
@@ -58,11 +63,13 @@ class EKF():
     def update(self):
         if self.z_k is None:
             return
-
-        x_mean_k_km1, Sx_k_km1 = self.prediction(self.X, self.Sx_k_k)
+        # Output matrix of means of all predicted steps
+        x_prediction_means, Sx_k_km1 = self.prediction(self.X, self.Sx_k_k)
+        x_mean_k_km1 = x_prediction_means[0]
         kalman_gain = self.compute_gain(Sx_k_km1)
         self.X, self.Sx_k_k = self.correction(x_mean_k_km1, Sx_k_km1, kalman_gain)
-        
+        """for i in range(nk):
+            self.X_predicted_steps[i],Sx_k_k_step = self.correction(s_prediction_means[i], Sx_k_km1, kalman_gain)"""
         print(self.X, self.Sx_k_k)
 
     def dotX(self, x):
@@ -119,7 +126,7 @@ if __name__ == '__main__':
 
     # ---------------Define initial conditions --------------- #
     dt = 1  # Sampling duration (seconds)
-    nk = 1  # Look ahead duration (seconds)
+    nk = 5  # Look ahead duration (seconds)
 
     # Initial State of the ball
     X = [0, 0, 0]
