@@ -26,18 +26,20 @@ void controlCallback( const geometry_msgs::Twist& twist_msg){
   omega_right = x_dot-theta_dot/4;
   //Serial.println("   omega_left:  "+String(omega_left)+"   omega_right:  "+String(omega_right));
   //leftForward = false; rightForward = false;
-  MotorLeft.Throttle(((omega_left)));
-  MotorRight.Throttle(((omega_right)));
-//  if(-0.01>omega_right && omega_right>0.01){
-//    MotorRight.Throttle(((omega_right)));
-//  }
-//  if(-0.01>omega_left && omega_left>0.01){
-//    MotorLeft.Throttle(((omega_left)));
-//  }
-//  else{
-//    MotorLeft.Stop();
-//    MotorRight.Stop();
-//  }
+//  MotorLeft.Throttle(((omega_left)));
+//  MotorRight.Throttle(((omega_right)));
+
+  if(-0.01 > omega_right || omega_right > 0.01){
+    MotorRight.Throttle(omega_right);
+  } else {
+    MotorRight.Stop();
+  }
+  
+  if(-0.01 > omega_left || omega_left > 0.01){
+    MotorLeft.Throttle(omega_left);
+  } else{
+    MotorLeft.Stop();
+  }
   
 
     //     leftForward = false;
@@ -107,4 +109,3 @@ void loop() {
   //   MotorRight.Stop();
   // }
 }
-
