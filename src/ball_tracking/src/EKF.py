@@ -8,7 +8,7 @@ from tf.transformations import quaternion_from_euler
 
 
 class EKF():
-    def __init__(self, nk, dt, X, U, color='Purple'):
+    def __init__(self, nk, dt, X, U, color='Blue'):
         self.nk = nk
         self.dt = dt
         self.X = X
