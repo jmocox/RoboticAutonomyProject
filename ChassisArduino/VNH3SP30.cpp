@@ -30,7 +30,12 @@ void VNH3SP30::Throttle(float Throttle) {
 		digitalWrite(INBPIN, HIGH);
 		SetPWMA(abs(Throttle)*255); 
 	}
-	
+//  else{
+//    SetPWMA(0); 
+//    digitalWrite(INAPIN, LOW);
+//    digitalWrite(INBPIN, LOW);
+//  }
+//	
 }
 
 void VNH3SP30::Stop() {
@@ -45,4 +50,3 @@ void VNH3SP30::SetPWMA(byte Value) {
 	analogWrite(PWMPIN, Value);
   
 }
-

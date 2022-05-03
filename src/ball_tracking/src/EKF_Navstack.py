@@ -3,15 +3,16 @@
 import numpy as np
 import time
 import rospy
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+#from move_base_msgs.msg import MoveBaseGoal 
 from visualization_msgs.msg import MarkerArray, Marker
 from nav_msgs.msg import Odometry
 from tf.transformations import quaternion_from_euler
 
 
 class EKF():
-    def __init__(self, nk, dt, X, U, color='Blue'):
-        self.start = time.perf_counter()
+    def __init__(self, nk, dt, X, U, color='Purple'):
+        self.start = time.time()
         self.nk = nk
         self.dt = dt
         self.X = X
@@ -36,15 +37,15 @@ class EKF():
             PoseWithCovarianceStamped,
             self.measurement_cb
         )
-        rospy.Subscriber('/robot_odom')
 
         self.Sx_k_k = self.Sigma_init
 
-        self.last_recorded_positions = None
+        self.last_recorded_positions = [[0], [0]]
         self.steps_ball_unfound = 0
 
         self.belief_pub = rospy.Publisher('/ball_belief', PoseWithCovarianceStamped, queue_size=5)
         self.future_pub = rospy.Publisher('/future', MarkerArray, queue_size=5)
+        #self.goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)
 
     def prediction(self, x_km1_km1, Sigma_km1_km1):
 
@@ -127,15 +128,18 @@ class EKF():
     def update(self):
         if self.z_k is None:
             return
-        ball_detected = self.sigma_measure[0][0] < 9000
+        ball_detected = self.z_k[0] != 0 and self.z_k[1] != 0
         ## Publish to nav stack position of ball when ball is observed    
         if ball_detected:
             self.steps_ball_unfound = 0
             # Output matrix of means of all predicted steps
             x_prediction_means, x_mean_k_km1, Sx_k_km1 = self.prediction(self.X, self.Sx_k_k)
+            print('predict', x_mean_k_km1)
             #x_mean_k_km1 = x_prediction_means[0] #Changed this line too
             kalman_gain = self.compute_gain(Sx_k_km1)
             self.X, self.Sx_k_k = self.correction(x_mean_k_km1, Sx_k_km1, kalman_gain)
+            self.X[2] = np.arctan2(np.sin(self.X[2]), np.cos(self.X[2]))
+            print('correct', self.z_k, self.X)
             """for i in range(nk):
                 self.X_predicted_steps[i],Sx_k_k_step = self.correction(s_prediction_means[i], Sx_k_km1, kalman_gain)"""
             #print(self.X, self.Sx_k_k)
@@ -143,23 +147,27 @@ class EKF():
             for x, y, z in x_prediction_means:
                 xs.append(x)
                 ys.append(y)
-            self.last_recorded_positions = [xs,ys]
+            self.last_recorded_positions = [xs, ys]
             print('Belief Pose => ', self.X)
             print('Belief Covariance => ', self.Sx_k_k)
             self.publish_future(xs, ys, self.z_height_k)
         ## Publish to navstack predicted position of ball, K amount of steps ahead    
         if not ball_detected:
             #Count how many time steps ball isn't observed
-            self.steps_ball_unfound = self.steps_ball_unfound+1
-            if (self.steps_ball_unfound>self.nk):
-                self.X = [self.last_recorded_positions[nk], self.X[2]]
-            else:
-                self.X = [self.last_recorded_positions[self.steps_ball_unfound], self.X[2]]
+            self.steps_ball_unfound += 1
 
-        #start = time.perf_counter()
-        toc = time.perf_counter()
-        if (toc-self.start>5): ## Set time here
-            self.publish_ball_belief()
+            print(self.steps_ball_unfound,  len(self.last_recorded_positions[0]))
+            if self.steps_ball_unfound < len(self.last_recorded_positions[0]):
+                future_position_index = self.steps_ball_unfound
+            else:
+                future_position_index = -1
+            self.X = [
+                self.last_recorded_positions[0][future_position_index],
+                self.last_recorded_positions[1][future_position_index], 
+                self.X[2]
+            ]
+
+        self.publish_ball_belief()
     
     def dotX(self, x, time_step):
         x_dot = np.asarray([
@@ -171,7 +179,7 @@ class EKF():
         #return (x + x_dot), (x + self.nk * x_dot)
         return (x + time_step * x_dot)
 
-    def odom_cb(self, pose_of_bot):
+    #def odom_cb(self, pose_of_bot):
 
 
     def measurement_cb(self, pwcs):
@@ -194,7 +202,7 @@ class EKF():
     def publish_ball_belief(self):
         pwcs = PoseWithCovarianceStamped()
         pwcs.header.stamp = rospy.get_rostime()
-        pwcs.header.frame_id = 'camera_link'
+        pwcs.header.frame_id = 'd400_link'
 
         x, y, z, w = quaternion_from_euler(0, 0, self.X[2])
         pwcs.pose.pose.orientation.x = x
@@ -226,7 +234,7 @@ class EKF():
             y = ys[i]
             
             marker = Marker()
-            marker.header.frame_id = '/camera_link'
+            marker.header.frame_id = '/d400_link'
             marker.type = marker.SPHERE
             marker.action = marker.ADD
             marker.ns = 'FutureBalls'
@@ -269,5 +277,6 @@ if __name__ == '__main__':
     hz = 1.0 / dt
     rate = rospy.Rate(hz)
     while not rospy.is_shutdown():
+
         extended_kalman_filter.update()
         rate.sleep()
