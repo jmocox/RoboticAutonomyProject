@@ -1,0 +1,8 @@
+prefix=/home/team/RoboticAutonomyProject/install
+
+Name: henry_drive_control
+Description: Description of henry_drive_control
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

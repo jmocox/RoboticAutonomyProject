@@ -1,0 +1,8 @@
+prefix=/home/team/RoboticAutonomyProject/install
+
+Name: ball_tracking
+Description: Description of ball_tracking
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

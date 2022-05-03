@@ -1,10 +1,10 @@
 obstacle_range: 2.5
 raytrace_range: 3.0
-footprint: [[-0.55, -0.25], [-0.55,0.25], [0.05, 0.25], [0.05, -0.25]]
+footprint: [[0.275, 0.25], [-0.275, 0.25], [-0.275, -0.25], [0.275, -0.25]]
 footprint_padding: 0.1
 #robot_radius: ir_of_robot
 # inflation_radius: 0.5
 
-observation_sources: d435i_camera_points
-
-d435i_camera_points: {sensor_frame: $(arg tf_prefix_camera1)_link, data_type: PointCloud, topic: /$(arg camera2)/..., marking: true, clearing: true}
+map_type: costmap
+observation_sources: scan
+scan: {sensor_frame: d400_link, data_type: LaserScan, topic: scan, marking: true, clearing: true}

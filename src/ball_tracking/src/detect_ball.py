@@ -14,11 +14,11 @@ import numpy as np
 import json
 
 ball_hsv_thresholds = {
-    #'Purple': {'lower': (113, 35, 40), 'upper': (145, 160, 240)},
-    'Blue': {'lower': (95, 150, 80), 'upper': (100, 255, 250)},
-    # 'Green': {'lower': (43, 60, 40), 'upper': (71, 240, 200)},
-    # 'Yellow': {'lower': (19, 60, 100), 'upper': (23, 255, 255)},
-    # 'Orange': {'lower': (11, 150, 100), 'upper': (16, 255, 250)},
+    'Purple': {'lower': (113, 35, 40), 'upper': (145, 255, 255)},
+    #'Blue': {'lower': (95, 150, 80), 'upper': (100, 255, 250)},
+    #'Green': {'lower': (43, 60, 40), 'upper': (71, 255, 255)},
+    #'Yellow': {'lower': (19, 60, 100), 'upper': (23, 255, 255)},
+    #'Orange': {'lower': (11, 150, 100), 'upper': (16, 255, 250)},
 }
 
 marker_rgb_colors = {c: (float(r) / 255, float(g) / 255, float(b) / 255)
@@ -49,8 +49,11 @@ class BallDetector:
         self.bearing = {c: 0 for c in ball_hsv_thresholds.keys()}
         self.speed = {c: 0 for c in ball_hsv_thresholds.keys()}
 
-        rospy.Subscriber('/camera/color/image_raw', Image, self.image_callback)
-        rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_callback)
+        #self.camera_label = '/camera'
+        self.camera_label = '/d400'
+
+        rospy.Subscriber(self.camera_label + '/color/image_raw', Image, self.image_callback)
+        rospy.Subscriber(self.camera_label + '/aligned_depth_to_color/image_raw', Image, self.depth_callback)
 
         self.kernel = np.ones((5, 5), np.uint8)
 
@@ -112,7 +115,7 @@ class BallDetector:
             rospy.logerr(e)
             print(e)
             return
-
+        
         if self.width is None:
             self.height, self.width, _ = cv_image.shape
 
@@ -204,7 +207,7 @@ class BallDetector:
     def publish_pose_w_cov(self, color):
         pwcs = PoseWithCovarianceStamped()
         pwcs.header.stamp = rospy.get_rostime()
-        pwcs.header.frame_id = 'camera_link'
+        pwcs.header.frame_id = self.camera_label + '_link'
         pwcs.pose.pose.orientation.x = 0
         pwcs.pose.pose.orientation.y = 0
         pwcs.pose.pose.orientation.z = 0
@@ -239,7 +242,7 @@ class BallDetector:
 
     def publish_velocity(self, color):
         marker = Marker()
-        marker.header.frame_id = '/camera_link'
+        marker.header.frame_id = self.camera_label + '_link'
         marker.type = marker.ARROW
         marker.action = marker.ADD
         marker.ns = color + 'Velocity'
@@ -281,7 +284,7 @@ class BallDetector:
         r, g, b = marker_rgb_colors[color]
 
         marker = Marker()
-        marker.header.frame_id = '/camera_link'
+        marker.header.frame_id = self.camera_label + '_link'
         marker.type = marker.SPHERE
         marker.action = marker.ADD
         marker.ns = color + 'Ball'
