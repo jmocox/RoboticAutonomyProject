@@ -5,12 +5,10 @@ import time
 import numpy as np
 import rospy
 
-import actionlib
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Joy
-from tf.transformations import quaternion_from_euler
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 
 
@@ -35,9 +33,6 @@ class goal_publisher_node():
 
         self.pub = rospy.Publisher('/chassis/cmd_vel', Twist, queue_size=10)
 
-        self.client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
-        self.client.wait_for_server()
-
     def run(self):
         while not rospy.is_shutdown():
             if time.time() - self.start > self.wait_time:
@@ -55,7 +50,6 @@ class goal_publisher_node():
 
     def publish_goal(self):
         if self.e_stop:
-            self.client.cancel_all_goals()
             msg = Twist()
             msg.linear.x = 0
             msg.angular.z = 0
@@ -64,10 +58,6 @@ class goal_publisher_node():
         
         
         if self.current_ball_belief is None or self.current_robot_location is None:
-            msg = Twist()
-            msg.linear.x = 0
-            msg.angular.z = 0
-            self.pub.publish(msg)
             return
         
         xr, yr = self.current_robot_location
@@ -77,31 +67,44 @@ class goal_publisher_node():
         theta = np.arctan2(dy, dx)
 
         distance = np.sqrt(((yt - yr) ** 2) + ((xt - xr) ** 2))
+
         if distance < 0.3:
-            self.client.cancel_all_goals()
             msg = Twist()
             msg.linear.x = 0
             msg.angular.z = 0
             self.pub.publish(msg)
-            return
 
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "map"
-        goal.target_pose.header.stamp = rospy.Time.now()
+        
 
-        goal.target_pose.pose.position.x = xt
-        goal.target_pose.pose.position.y = yt
+        throttle = 0
+        if distance > 0 and distance < 0.75:
+            throttle = distance - 0.3
+        elif distance >= 0.75:
+            throttle = 0.45
+        
+        turn_diff = theta - self.current_robot_theta
+        turn_diff = self.correct_angle(turn_diff)
 
-        x, y, z, w = quaternion_from_euler(0, 0, theta)
-        goal.target_pose.pose.orientation.x = x
-        goal.target_pose.pose.orientation.y = y
-        goal.target_pose.pose.orientation.z = z
-        goal.target_pose.pose.orientation.w = w
+        turn_max = 0.1
+        turn_throttle = max(min(turn_diff * 2, turn_max), -turn_max)
+        
 
-        self.client.send_goal(goal)
+        msg = Twist()
+        msg.linear.x = throttle
+        msg.angular.z = turn_throttle
+        self.pub.publish(msg)
+
+    def correct_angle(self, a):
+        return np.arctan2(np.sin(a), np.cos(a))
     
     def robot_odometry_callback(self, msg):
         self.current_robot_location = [msg.pose.pose.position.x, msg.pose.pose.position.y]
+        self.current_robot_theta = euler_from_quaternion([
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        ])[2]
     
     def ball_belief_callback(self, msg):
         if np.trace(np.reshape(msg.pose.covariance, (6, 6))) < self.ball_belief_covariance_threshold:

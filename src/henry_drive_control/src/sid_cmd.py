@@ -38,7 +38,7 @@ if __name__=='__main__':
                 t_now = rospy.get_rostime()
                 if (t_now - t_init < dT):
                     msg = Twist()
-                    msg.linear.x = 0.45
+                    msg.linear.x = 0.2
                     msg.angular.z = 0
                     pub.publish(msg)
                 else:

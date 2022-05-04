@@ -152,7 +152,7 @@ class BallDetector:
                 ball_d = float(self.last_depth[int(y), int(x)]) / 1000
 
                 # ignore if too close
-                if ball_d > 0.1:
+                if ball_d > 0.1 and ball_d < 5:
                     error = self.squared_mean_error(ball_d, radius)
                     if radius > 10 and error < 200:
                         tx, ty, tz, tyaw, tpitch = self.transform(x, y, ball_d)
