@@ -38,13 +38,16 @@ float linear_scale = 0.59;
 float throttle_threshold = 0.07;
 
 void controlCallback( const geometry_msgs::Twist& twist_msg){
-  theta_dot = 0;
-  x_dot = 0;
-  if(twist_msg.linear.x !=0&&twist_msg.angular.z!=0){
+  //
+  if(twist_msg.linear.x ==0&&twist_msg.angular.z==0){
+    theta_dot = 0;
+    x_dot = 0;
+  }
+  else{
     theta_dot = twist_msg.angular.z * theta_scale;
     x_dot = twist_msg.linear.x * linear_scale;
   }
-  
+//  
   omega_left = x_dot + theta_dot;
   omega_right = x_dot - theta_dot;
   //Serial.println("   omega_left:  "+String(omega_left)+"   omega_right:  "+String(omega_right));
@@ -113,35 +116,19 @@ void loop() {
   if (theta_dot == 0 || x_dot == 0) {
     digitalWrite(LED_BUILTIN, HIGH);
   }
+//  if(-throttle_threshold > omega_right || omega_right > throttle_threshold){
+//    MotorRight.Throttle(omega_right);
+//  } else {
+//    MotorRight.Stop();
+//  }
+//  
+//  if(-throttle_threshold > omega_left || omega_left > throttle_threshold){
+//    MotorLeft.Throttle(omega_left);
+//  } else{
+//    MotorLeft.Stop();
+//  }
   delay(250);
   digitalWrite(LED_BUILTIN, LOW);
   //Serial.println("AHHHHHHHHHHH");
   
-
-  // if(thetadot != 0 || xdot != 0) {
-  //   if(thetadot > 0){ //Right hand rule is positive rotation (Z is thumb upward)
-  //     leftForward = false;
-  //     rightForward = true;
-  //   }
-  //   if(thetadot <0) {
-  //     leftForward = true;
-  //     rightForward = false;
-  //   }if(xdot < 0 && thetadot ==0){
-  //     leftForward = false;
-  //     rightForward = false;
-  //   }
-  //     if(xdot > 0 && thetadot ==0){
-  //     leftForward = true;
-  //     rightForward = true;
-  //   }
-
-  //   MotorLeft(toInt(xdot*255), leftForward);
-  //   MotorRight(toInt(xdot*255), rightForward);
-  // }
-  // else() {
-  //   leftForward = true;
-  //   rightForward = true;
-  //   MotorLeft.Stop();
-  //   MotorRight.Stop();
-  // }
 }

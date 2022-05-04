@@ -7,11 +7,12 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 #from move_base_msgs.msg import MoveBaseGoal 
 from visualization_msgs.msg import MarkerArray, Marker
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float32
 from tf.transformations import quaternion_from_euler
 
 
 class EKF():
-    def __init__(self, nk, dt, X, U, color='Purple'):
+    def __init__(self, nk, dt, X, U, color):
         self.start = time.time()
         self.nk = nk
         self.dt = dt
@@ -45,7 +46,12 @@ class EKF():
 
         self.belief_pub = rospy.Publisher('/ball_belief', PoseWithCovarianceStamped, queue_size=5)
         self.future_pub = rospy.Publisher('/future', MarkerArray, queue_size=5)
-        #self.goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)
+        self.kalman_gain_pub = rospy.Publisher('/kalman_gain_trace', Float32, queue_size=5)
+        self.covariance_pub = rospy.Publisher('/covariance_trace', Float32, queue_size=5)
+        #self.goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)\
+
+        self.kalman_gain_det = 0
+        self.covariance_det = 0
 
     def prediction(self, x_km1_km1, Sigma_km1_km1):
 
@@ -137,6 +143,7 @@ class EKF():
             print('predict', x_mean_k_km1)
             #x_mean_k_km1 = x_prediction_means[0] #Changed this line too
             kalman_gain = self.compute_gain(Sx_k_km1)
+            self.kalman_gain_det = np.trace(kalman_gain)
             self.X, self.Sx_k_k = self.correction(x_mean_k_km1, Sx_k_km1, kalman_gain)
             self.X[2] = np.arctan2(np.sin(self.X[2]), np.cos(self.X[2]))
             print('correct', self.z_k, self.X)
@@ -166,7 +173,6 @@ class EKF():
                 self.last_recorded_positions[1][future_position_index], 
                 self.X[2]
             ]
-
         self.publish_ball_belief()
     
     def dotX(self, x, time_step):
@@ -197,7 +203,7 @@ class EKF():
         ])
 
         self.z_height_k = pwcs.pose.pose.position.z
-        self.z_height_variance = min(pwcs.pose.covariance[14], 1)
+        self.z_height_variance = min(pwcs.pose.covariance[14], .1)
 
     def publish_ball_belief(self):
         pwcs = PoseWithCovarianceStamped()
@@ -222,6 +228,9 @@ class EKF():
             0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
         ]
+
+
+        self.covariance_det = np.trace(np.reshape(np.asarray(pwcs.pose.covariance), (6, 6)))
 
         self.belief_pub.publish(pwcs)
     
@@ -272,11 +281,18 @@ if __name__ == '__main__':
         0  # Turning velocity (radians / second)
     ]
 
-    extended_kalman_filter = EKF(nk, dt, X, U)
+    color = rospy.get_param('/ball_color')
+    extended_kalman_filter = EKF(nk, dt, X, U, color=color)
 
     hz = 1.0 / dt
     rate = rospy.Rate(hz)
     while not rospy.is_shutdown():
 
         extended_kalman_filter.update()
+        f32 = Float32()
+        f32.data = extended_kalman_filter.kalman_gain_det
+        extended_kalman_filter.kalman_gain_pub.publish(f32)
+        f320 = Float32()
+        f320.data = extended_kalman_filter.covariance_det
+        extended_kalman_filter.covariance_pub.publish(f320)
         rate.sleep()
