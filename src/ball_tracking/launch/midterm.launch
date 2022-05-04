@@ -3,6 +3,7 @@
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
         <arg name="align_depth" value="true"/>
     </include>
+  <param name="ball_color"  type="string"   value="Blue"/>
 
     <node name="detect_ball" pkg="ball_tracking" type="detect_ball.py" output="screen"/>
 

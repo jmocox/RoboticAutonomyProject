@@ -9,6 +9,7 @@ import actionlib
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Joy
 from tf.transformations import quaternion_from_euler
 
 
@@ -21,6 +22,8 @@ class goal_publisher_node():
         self.wait_time = wait_time
         self.rate = rospy.Rate(hz)
 
+        self.e_stop = False
+
         self.current_ball_belief = None
         self.ball_belief_covariance_threshold = 10000
         self.current_robot_location = None
@@ -28,6 +31,7 @@ class goal_publisher_node():
         
         rospy.Subscriber('/ball_belief', PoseWithCovarianceStamped, self.ball_belief_callback)
         rospy.Subscriber('/t265/odom/sample', Odometry, self.robot_odometry_callback)
+        rospy.Subscriber('/joy', Joy, self.joystick_callback)
 
         self.client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self.client.wait_for_server()
@@ -36,9 +40,23 @@ class goal_publisher_node():
         while not rospy.is_shutdown():
             if time.time() - self.start > self.wait_time:
                 self.publish_goal()
+            print('wait time!!!!!!!!!!', self.wait_time, 'diff', time.time() - self.start)
             self.rate.sleep()
+    
+    def joystick_callback(self, msg):
+        # (b) is emergency stop
+        self.e_stop = bool(msg.buttons[1])
+
+        # (y) resets the 5 second count down
+        if msg.buttons[3]:
+            self.start = time.time()
 
     def publish_goal(self):
+        if self.e_stop:
+            self.client.cancel_all_goals()
+            return
+        
+        
         if self.current_ball_belief is None or self.current_robot_location is None:
             return
         
@@ -80,4 +98,4 @@ class goal_publisher_node():
             print('Ball belief is to uncertain to publish goal')
 
 if __name__ == '__main__':
-    goal_publisher_node().run()
+    goal_publisher_node(wait_time=rospy.get_param('/wait_time')).run()
