@@ -7,6 +7,7 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 #from move_base_msgs.msg import MoveBaseGoal 
 from visualization_msgs.msg import MarkerArray, Marker
 from nav_msgs.msg import Odometry
+from scipy.stats import multivariate_normal, entropy
 from std_msgs.msg import Float32
 from tf.transformations import quaternion_from_euler
 
@@ -48,10 +49,12 @@ class EKF():
         self.future_pub = rospy.Publisher('/future', MarkerArray, queue_size=5)
         self.kalman_gain_pub = rospy.Publisher('/kalman_gain_trace', Float32, queue_size=5)
         self.covariance_pub = rospy.Publisher('/covariance_trace', Float32, queue_size=5)
+        self.entropy_pub = rospy.Publisher('/entropy_trace', Float32, queue_size=5)
         #self.goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)\
 
         self.kalman_gain_det = 0
         self.covariance_det = 0
+        self.covariance = np.zeros((6, 6))
 
     def prediction(self, x_km1_km1, Sigma_km1_km1):
 
@@ -173,6 +176,7 @@ class EKF():
                 self.last_recorded_positions[1][future_position_index], 
                 self.X[2]
             ]
+            self.Sx_k_k *= 1.05
         self.publish_ball_belief()
     
     def dotX(self, x, time_step):
@@ -229,8 +233,8 @@ class EKF():
             0, 0, 0, 0, 0, 0,
         ]
 
-
-        self.covariance_det = np.trace(np.reshape(np.asarray(pwcs.pose.covariance), (6, 6)))
+        self.covariance = np.reshape(np.asarray(pwcs.pose.covariance), (6, 6))
+        self.covariance_det = np.trace(self.covariance)
 
         self.belief_pub.publish(pwcs)
     
@@ -264,6 +268,32 @@ class EKF():
 
         self.future_pub.publish(markers)
 
+    def publish_entropy(self):
+        x_var = self.covariance[0, 0]
+        y_var = self.covariance[1, 1]
+
+        cov = np.diag(np.array([x_var, y_var]))
+
+        try:
+            np.linalg.inv(cov)
+        except:
+            return
+
+        x, y = np.mgrid[-10.0:10.0:100j, -10.0:10.0:100j]
+        xy = np.column_stack([x.flat, y.flat])
+        mu = np.array([0.0, 0.0])
+
+        w = multivariate_normal.pdf(xy, mean=mu, cov=cov)
+        e = entropy(w, base=2)
+
+        print('entroy =', e)
+        f32 = Float32()
+        f32.data = e
+        self.entropy_pub.publish(f32)
+
+
+
+
 
 if __name__ == '__main__':
     rospy.init_node('EKF')
@@ -295,4 +325,7 @@ if __name__ == '__main__':
         f320 = Float32()
         f320.data = extended_kalman_filter.covariance_det
         extended_kalman_filter.covariance_pub.publish(f320)
+
+        if extended_kalman_filter.covariance is not None:
+            extended_kalman_filter.publish_entropy()
         rate.sleep()

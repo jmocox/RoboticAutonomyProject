@@ -1,7 +1,7 @@
 <launch>
 
   <param name="wait_time"  type="int"   value="0"/>
-  <param name="ball_color"  type="string"   value="Blue"/>
+  <param name="ball_color"  type="string"   value="Yellow"/>
   
   <node name="robot_arduino" pkg="rosserial_python" type="serial_node.py" output="screen">
 
@@ -10,7 +10,7 @@
 
   </node>
 
-  <node name="goal_publisher_node" pkg="henry_drive_control" type="GoalPublisher.py" output="screen" />
+  <node name="goal_publisher_node" pkg="henry_drive_control" type="GoalPublisherWithoutNavstac.py" output="screen" />
 
   <include file="$(find ball_tracking)/launch/rtabmap.launch" />
   <include file="$(find henry_drive_control)/launch/move_henry.launch" />

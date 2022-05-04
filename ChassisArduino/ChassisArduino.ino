@@ -35,7 +35,7 @@ bool leftForward, rightForward;
 
 float theta_scale = 0.4666;
 float linear_scale = 0.59;
-float throttle_threshold = 0.07;
+float throttle_threshold = 0.04;
 
 void controlCallback( const geometry_msgs::Twist& twist_msg){
   //
@@ -56,7 +56,7 @@ void controlCallback( const geometry_msgs::Twist& twist_msg){
 //  MotorRight.Throttle(((omega_right)));
 
   if(-throttle_threshold > omega_right || omega_right > throttle_threshold){
-    MotorRight.Throttle(omega_right);
+    MotorRight.Throttle(omega_right * 1.4);
   } else {
     MotorRight.Stop();
   }
