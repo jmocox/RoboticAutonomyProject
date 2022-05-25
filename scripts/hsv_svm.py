@@ -561,8 +561,54 @@ def clean_vid(color='Yellow', front_cut=100, back_cut=100):
 
     out.release()
 
+def show_cam():
+    ball_hsv_thresholds = {
+        'Blue': {'lower': (95, 150, 80), 'upper': (100, 255, 250)},
+    }
+
+    kernel = np.ones((5, 5), np.uint8)
+
+    vid = cv2.VideoCapture(0)
+    ret, frame = vid.read()
+
+    while ret:
+
+        hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_image, (95, 110, 80), (255, 255, 255))
+        smooth_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        frame_circ = frame.copy()
+
+        contours = cv2.findContours(smooth_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        better_contours = imutils.grab_contours(contours)
+        sorted_contours = sorted(better_contours, key=cv2.contourArea, reverse=True)
+        if len(sorted_contours) > 0:
+            contour = sorted_contours[0]
+            ((x, y), radius) = cv2.minEnclosingCircle(contour)
+            cv2.circle(frame_circ, (int(x), int(y)), int(radius), (0, 0, 0), 4)
+
+
+        #cv2.imshow('frame', frame)
+        #cv2.imshow('hsv', hsv_image)
+        #cv2.imshow('mask', mask)
+        cv2.imshow('smooth_mask', smooth_mask)
+        cv2.imshow('frame_circ', frame_circ)
+
+
+
+        ret, frame = vid.read()
+        c = cv2.waitKey(10)
+        if c & 0xFF == ord('q'):
+            break
+        elif c & 0xFF == ord('p'):
+            cv2.imwrite('../tmp/presentation_frame.png', frame)
+            cv2.imwrite('../tmp/presentation_hsv.png', hsv_image)
+            cv2.imwrite('../tmp/presentation_smooth_mask.png', smooth_mask)
+            cv2.imwrite('../tmp/presentation_mask.png', mask)
+            cv2.imwrite('../tmp/presentation_frame_circ.png', frame_circ)
+            break
+
 if __name__ == '__main__':
-    clean_vid()
+    show_cam()
     # test_mask_video()
     # test_masks()
     # clean_mask(save=True)
