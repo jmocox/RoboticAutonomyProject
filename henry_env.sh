@@ -1,0 +1,4 @@
+# export ROS_MASTER_URI=http://172.27.154.145:11311
+# export ROS_HOSTNAME=172.27.130.133
+# export ROS_IP=172.27.130.133
+

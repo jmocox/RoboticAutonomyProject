@@ -13,13 +13,19 @@ import cv2
 import numpy as np
 import json
 
+ball_color = rospy.get_param('/ball_color')
+
 ball_hsv_thresholds = {
-    #'Purple': {'lower': (113, 35, 40), 'upper': (145, 160, 240)},
+    'Purple': {'lower': (113, 35, 40), 'upper': (145, 255, 255)},
     'Blue': {'lower': (95, 150, 80), 'upper': (100, 255, 250)},
-    # 'Green': {'lower': (43, 60, 40), 'upper': (71, 240, 200)},
-    # 'Yellow': {'lower': (19, 60, 100), 'upper': (23, 255, 255)},
-    # 'Orange': {'lower': (11, 150, 100), 'upper': (16, 255, 250)},
+    'Green': {'lower': (43, 60, 40), 'upper': (71, 255, 255)},
+    'Yellow': {'lower': (19, 60, 100), 'upper': (23, 255, 255)},
+    'Orange': {'lower': (11, 150, 100), 'upper': (16, 255, 250)},
 }
+ball_hsv_thresholds = {k: v for k, v in ball_hsv_thresholds.items() if k == ball_color}
+
+print('\n' * 10, ball_color, ball_hsv_thresholds, '\n' * 10)
+
 
 marker_rgb_colors = {c: (float(r) / 255, float(g) / 255, float(b) / 255)
                      for c, (r, g, b) in {
@@ -38,6 +44,8 @@ class BallDetector:
 
         self.bridge = CvBridge()
 
+        self.ball_color = rospy.get_param('/ball_color')
+
         self.ball_image_pub = rospy.Publisher('/ball_image', Image, queue_size=5)
         self.ball_cov_pubs = {c: rospy.Publisher('/ballxyz/' + c, PoseWithCovarianceStamped, queue_size=5) for c in
                               ball_hsv_thresholds.keys()}
@@ -49,8 +57,11 @@ class BallDetector:
         self.bearing = {c: 0 for c in ball_hsv_thresholds.keys()}
         self.speed = {c: 0 for c in ball_hsv_thresholds.keys()}
 
-        rospy.Subscriber('/camera/color/image_raw', Image, self.image_callback)
-        rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_callback)
+        #self.camera_label = '/camera'
+        self.camera_label = '/d400'
+
+        rospy.Subscriber(self.camera_label + '/color/image_raw', Image, self.image_callback)
+        rospy.Subscriber(self.camera_label + '/aligned_depth_to_color/image_raw', Image, self.depth_callback)
 
         self.kernel = np.ones((5, 5), np.uint8)
 
@@ -68,6 +79,8 @@ class BallDetector:
 
         while not rospy.is_shutdown():
             for color in ball_hsv_thresholds.keys():
+                if color != self.ball_color:
+                    continue
                 self.calculate_bearing_and_speed(color)
                 self.publish_pose_w_cov(color)
                 self.publish_velocity(color)
@@ -112,13 +125,16 @@ class BallDetector:
             rospy.logerr(e)
             print(e)
             return
-
+        
         if self.width is None:
             self.height, self.width, _ = cv_image.shape
 
         hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
         for color, thresholds in ball_hsv_thresholds.items():
+            if color != self.ball_color:
+                continue
+
             found_ball_xyz = None
             # use color to find ball candidates
             mask = cv2.inRange(hsv_image, thresholds['lower'], thresholds['upper'])
@@ -136,7 +152,7 @@ class BallDetector:
                 ball_d = float(self.last_depth[int(y), int(x)]) / 1000
 
                 # ignore if too close
-                if ball_d > 0.1:
+                if ball_d > 0.1 and ball_d < 5:
                     error = self.squared_mean_error(ball_d, radius)
                     if radius > 10 and error < 200:
                         tx, ty, tz, tyaw, tpitch = self.transform(x, y, ball_d)
@@ -204,7 +220,7 @@ class BallDetector:
     def publish_pose_w_cov(self, color):
         pwcs = PoseWithCovarianceStamped()
         pwcs.header.stamp = rospy.get_rostime()
-        pwcs.header.frame_id = 'camera_link'
+        pwcs.header.frame_id = self.camera_label + '_link'
         pwcs.pose.pose.orientation.x = 0
         pwcs.pose.pose.orientation.y = 0
         pwcs.pose.pose.orientation.z = 0
@@ -239,7 +255,7 @@ class BallDetector:
 
     def publish_velocity(self, color):
         marker = Marker()
-        marker.header.frame_id = '/camera_link'
+        marker.header.frame_id = self.camera_label + '_link'
         marker.type = marker.ARROW
         marker.action = marker.ADD
         marker.ns = color + 'Velocity'
@@ -281,7 +297,7 @@ class BallDetector:
         r, g, b = marker_rgb_colors[color]
 
         marker = Marker()
-        marker.header.frame_id = '/camera_link'
+        marker.header.frame_id = self.camera_label + '_link'
         marker.type = marker.SPHERE
         marker.action = marker.ADD
         marker.ns = color + 'Ball'
